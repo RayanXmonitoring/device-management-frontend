@@ -36,32 +36,22 @@ export default function ForgotPasswordPage() {
             <FiMail className="w-8 h-8 text-yellow-600" />
           </div>
           <h1 className="text-3xl font-bold text-gray-800">Lupa Password</h1>
-          <p className="text-gray-600 mt-2">
-            Masukkan email Anda untuk menerima link reset password
-          </p>
+          <p className="text-gray-600 mt-2">Masukkan email Anda untuk menerima link reset password</p>
         </div>
 
         {isSuccess ? (
           <div className="text-center space-y-4">
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p className="text-green-700">
-                Email reset password telah dikirim ke alamat email Anda.
-                Silakan cek kotak masuk atau folder spam.
-              </p>
+              <p className="text-green-700">Email reset password telah dikirim ke alamat email Anda. Silakan cek kotak masuk atau folder spam.</p>
             </div>
-            <button
-              onClick={() => router.push('/login')}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
+            <button onClick={() => router.push('/login')} className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium">
               Kembali ke Login
             </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
               <div className="relative">
                 <FiMail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
@@ -77,15 +67,13 @@ export default function ForgotPasswordPage() {
                   placeholder="Masukkan email"
                 />
               </div>
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-              )}
+              {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
             </div>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
               {isLoading ? 'Mengirim...' : 'Kirim Link Reset'}
             </button>
@@ -101,4 +89,4 @@ export default function ForgotPasswordPage() {
       </div>
     </div>
   );
-          }
+}
