@@ -1,24 +1,23 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { api } from '@/lib/api';
-import { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from '@/lib/firebase';
+import apiClient from '@/lib/api';
 
 // Async thunks
 export const loginUser = createAsyncThunk(
   'auth/login',
   async ({ email, password }, { rejectWithValue }) => {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const token = await userCredential.user.getIdToken();
+      const response = await apiClient.post('/auth/login', { email, password });
+      const { token, user, refreshToken } = response.data.data;
       
-      // Verify with backend
-      const response = await api.auth.login({ email, password, token });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('authToken', token);
+        localStorage.setItem('refreshToken', refreshToken);
+        localStorage.setItem('user', JSON.stringify(user));
+      }
       
-      localStorage.setItem('authToken', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      
-      return response.data;
+      return { user, token, refreshToken };
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.response?.data?.message || 'Login failed');
     }
   }
 );
@@ -27,31 +26,27 @@ export const registerUser = createAsyncThunk(
   'auth/register',
   async (userData, { rejectWithValue }) => {
     try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        userData.email,
-        userData.password
-      );
-      
-      const token = await userCredential.user.getIdToken();
-      const response = await api.auth.register({ ...userData, token });
-      
-      return response.data;
+      const response = await apiClient.post('/auth/register', userData);
+      return response.data.data;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.response?.data?.message || 'Registration failed');
     }
   }
 );
 
-export const verifyPin = createAsyncThunk(
-  'auth/verifyPin',
-  async (pin, { rejectWithValue }) => {
+export const logoutUser = createAsyncThunk(
+  'auth/logout',
+  async (_, { rejectWithValue }) => {
     try {
-      const response = await api.auth.verifyPin({ pin });
-      localStorage.setItem('pinVerified', 'true');
-      return response.data;
+      await apiClient.post('/auth/logout');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+      }
+      return true;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(error.response?.data?.message || 'Logout failed');
     }
   }
 );
@@ -61,33 +56,34 @@ const authSlice = createSlice({
   initialState: {
     user: null,
     token: null,
+    refreshToken: null,
     isAuthenticated: false,
     isLoading: false,
     error: null,
     pinVerified: false,
-    role: null,
   },
   reducers: {
     setUser: (state, action) => {
       state.user = action.payload;
       state.isAuthenticated = true;
-      state.role = action.payload.role;
     },
-    logout: (state) => {
-      state.user = null;
-      state.token = null;
-      state.isAuthenticated = false;
-      state.pinVerified = false;
-      state.role = null;
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-      localStorage.removeItem('pinVerified');
+    clearError: (state) => {
+      state.error = null;
     },
     setPinVerified: (state, action) => {
       state.pinVerified = action.payload;
     },
-    clearError: (state) => {
-      state.error = null;
+    logout: (state) => {
+      state.user = null;
+      state.token = null;
+      state.refreshToken = null;
+      state.isAuthenticated = false;
+      state.pinVerified = false;
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+      }
     },
   },
   extraReducers: (builder) => {
@@ -102,7 +98,7 @@ const authSlice = createSlice({
         state.isAuthenticated = true;
         state.user = action.payload.user;
         state.token = action.payload.token;
-        state.role = action.payload.user.role;
+        state.refreshToken = action.payload.refreshToken;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false;
@@ -115,24 +111,21 @@ const authSlice = createSlice({
       })
       .addCase(registerUser.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.isAuthenticated = true;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-        state.role = action.payload.user.role;
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
       })
-      // Verify PIN
-      .addCase(verifyPin.fulfilled, (state) => {
-        state.pinVerified = true;
-      })
-      .addCase(verifyPin.rejected, (state, action) => {
-        state.error = action.payload;
+      // Logout
+      .addCase(logoutUser.fulfilled, (state) => {
+        state.user = null;
+        state.token = null;
+        state.refreshToken = null;
+        state.isAuthenticated = false;
+        state.pinVerified = false;
       });
   },
 });
 
-export const { setUser, logout, setPinVerified, clearError } = authSlice.actions;
+export const { setUser, clearError, setPinVerified, logout } = authSlice.actions;
 export default authSlice.reducer;
