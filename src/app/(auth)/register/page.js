@@ -56,10 +56,6 @@ export default function RegisterPage() {
                   minLength: {
                     value: 2,
                     message: 'Nama minimal 2 karakter'
-                  },
-                  maxLength: {
-                    value: 50,
-                    message: 'Nama maksimal 50 karakter'
                   }
                 })}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
@@ -175,13 +171,6 @@ export default function RegisterPage() {
             </p>
           </div>
         </form>
-
-        <div className="mt-6 text-center text-xs text-gray-500">
-          Dengan mendaftar, Anda menyetujui{' '}
-          <a href="#" className="text-blue-600 hover:underline">Syarat & Ketentuan</a>
-          {' '}dan{' '}
-          <a href="#" className="text-blue-600 hover:underline">Kebijakan Privasi</a>
-        </div>
       </div>
     </div>
   );
