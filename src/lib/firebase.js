@@ -5,8 +5,7 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  sendPasswordResetEmail,
-  verifyIdToken
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 
@@ -19,10 +18,16 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const database = getDatabase(app);
+// Initialize Firebase only on client side
+let app;
+let auth;
+let database;
+
+if (typeof window !== 'undefined') {
+  app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+  auth = getAuth(app);
+  database = getDatabase(app);
+}
 
 export { 
   app, 
@@ -32,6 +37,5 @@ export {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  sendPasswordResetEmail,
-  verifyIdToken
+  sendPasswordResetEmail
 };
