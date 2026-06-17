@@ -7,15 +7,12 @@ const nextConfig = {
     unoptimized: true,
   },
   env: {
-    NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0',
-    NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME || 'Device Management System',
-  },
-  // Disable middleware for Edge runtime
-  experimental: {
-    middleware: true,
+    NEXT_PUBLIC_APP_VERSION: '1.0.0',
+    NEXT_PUBLIC_APP_NAME: 'Device Management System',
   },
   // Webpack configuration
   webpack: (config, { isServer }) => {
+    // Fix for Firebase modules
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -33,6 +30,8 @@ const nextConfig = {
     }
     return config;
   },
+  // Output configuration for Vercel
+  output: 'standalone',
 };
 
 module.exports = nextConfig;
