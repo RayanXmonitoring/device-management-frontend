@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
-import { auth } from './src/lib/firebase';
 
+// Simplified middleware without Firebase
 export async function middleware(request) {
   const path = request.nextUrl.pathname;
   const token = request.cookies.get('authToken')?.value;
 
   // Public paths that don't require authentication
-  const publicPaths = ['/login', '/register', '/forgot-password'];
-  const isPublicPath = publicPaths.includes(path);
+  const publicPaths = ['/login', '/register', '/forgot-password', '/api/auth'];
+  const isPublicPath = publicPaths.some(p => path.startsWith(p));
 
   // If no token and trying to access protected route, redirect to login
   if (!token && !isPublicPath) {
@@ -15,27 +15,22 @@ export async function middleware(request) {
   }
 
   // If token exists and trying to access public path, redirect to dashboard
-  if (token && isPublicPath) {
+  if (token && path === '/login') {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  // Verify token for protected routes
-  if (token && !isPublicPath) {
+  // Check user role for admin routes (simplified)
+  if (token && path.startsWith('/admin')) {
     try {
-      // Verify Firebase token
-      await auth.verifyIdToken(token);
+      // Decode token to check role
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+      const userRole = payload.role;
       
-      // Check user role for admin routes
-      if (path.startsWith('/admin')) {
-        // Get user role from token or session
-        // For now, we'll check from cookie
-        const userRole = request.cookies.get('userRole')?.value;
-        if (userRole !== 'admin') {
-          return NextResponse.redirect(new URL('/dashboard', request.url));
-        }
+      if (userRole !== 'admin') {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
       }
     } catch (error) {
-      // Invalid token, redirect to login
+      // If token invalid, redirect to login
       return NextResponse.redirect(new URL('/login', request.url));
     }
   }
@@ -44,5 +39,5 @@ export async function middleware(request) {
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|images).*)'],
 };
