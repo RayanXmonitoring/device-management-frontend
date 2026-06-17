@@ -1,14 +1,6 @@
 import axios from 'axios';
 
-// Get API URL dari environment
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:3001';
-
-// Log API URL untuk debugging
-if (process.env.NODE_ENV === 'development') {
-  console.log('API_URL:', API_URL);
-  console.log('WS_URL:', WS_URL);
-}
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -21,7 +13,6 @@ const apiClient = axios.create({
 // Request interceptor
 apiClient.interceptors.request.use(
   async (config) => {
-    // Get token from localStorage (client side only)
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('authToken');
       if (token) {
@@ -30,16 +21,12 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Response interceptor
 apiClient.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
     if (error.response?.status === 401) {
       if (typeof window !== 'undefined') {
@@ -59,10 +46,9 @@ export const api = {
     register: (userData) => apiClient.post('/auth/register', userData),
     logout: () => apiClient.post('/auth/logout'),
     verifyPin: (pin) => apiClient.post('/auth/verify-pin', { pin }),
-    resetData: (deviceId) => apiClient.post(`/auth/reset-data/${deviceId}`),
+    resetPassword: (email) => apiClient.post('/auth/reset-password', { email }),
     getProfile: () => apiClient.get('/auth/profile'),
     changePassword: (data) => apiClient.post('/auth/change-password', data),
-    resetPassword: (email) => apiClient.post('/auth/reset-password', { email }),
     refreshToken: (refreshToken) => apiClient.post('/auth/refresh', { refreshToken }),
   },
   devices: {
@@ -73,7 +59,6 @@ export const api = {
     delete: (id) => apiClient.delete(`/devices/${id}`),
     lock: (id) => apiClient.post(`/devices/${id}/lock`),
     unlock: (id) => apiClient.post(`/devices/${id}/unlock`),
-    getStatus: (id) => apiClient.get(`/devices/${id}/status`),
     setLostMode: (id, data) => apiClient.post(`/devices/${id}/lost-mode`, data),
     deactivateLostMode: (id) => apiClient.delete(`/devices/${id}/lost-mode`),
   },
@@ -117,5 +102,4 @@ export const api = {
   },
 };
 
-export { API_URL, WS_URL };
 export default apiClient;
