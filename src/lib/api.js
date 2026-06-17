@@ -1,6 +1,14 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+// Get API URL dari environment
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:3001';
+
+// Log API URL untuk debugging
+if (process.env.NODE_ENV === 'development') {
+  console.log('API_URL:', API_URL);
+  console.log('WS_URL:', WS_URL);
+}
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -10,12 +18,15 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor for authentication
+// Request interceptor
 apiClient.interceptors.request.use(
   async (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Get token from localStorage (client side only)
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },
@@ -31,10 +42,9 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-      // Only redirect on client side
       if (typeof window !== 'undefined') {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
         window.location.href = '/login';
       }
     }
@@ -107,4 +117,5 @@ export const api = {
   },
 };
 
+export { API_URL, WS_URL };
 export default apiClient;
