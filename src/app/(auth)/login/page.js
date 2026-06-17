@@ -1,122 +1,77 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDispatch, useSelector } from 'react-redux';
-import { loginUser, clearError } from '@/store/slices/authSlice';
-import { useForm } from 'react-hook-form';
-import toast from 'react-hot-toast';
 import Link from 'next/link';
-import { FiEye, FiEyeOff, FiMail, FiLock } from 'react-icons/fi';
+import { useDispatch } from 'react-redux';
+import api from '@/lib/api';
+import toast from 'react-hot-toast';
 
 export default function LoginPage() {
-  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
   const dispatch = useDispatch();
-  const { isLoading, error, isAuthenticated } = useSelector((state) => state.auth);
-  
-  const { register, handleSubmit, formState: { errors } } = useForm();
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/dashboard');
-    }
-  }, [isAuthenticated, router]);
-
-  useEffect(() => {
-    if (error) {
-      toast.error(error);
-      dispatch(clearError());
-    }
-  }, [error, dispatch]);
-
-  const onSubmit = async (data) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
     try {
-      await dispatch(loginUser(data)).unwrap();
+      const res = await api.post('/auth/login', { email, password });
+      const { token, user } = res.data.data;
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      dispatch({ type: 'auth/login/fulfilled', payload: { token, user } });
       toast.success('Login berhasil!');
       router.push('/dashboard');
-    } catch (error) {
-      toast.error(error || 'Login gagal. Silakan coba lagi.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Login gagal');
+      dispatch({ type: 'auth/login/rejected', payload: err.response?.data?.message });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-            <FiLock className="w-8 h-8 text-blue-600" />
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="bg-white p-8 rounded-lg shadow-md w-96">
+        <h1 className="text-2xl font-bold text-center mb-6">Login</h1>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
           </div>
-          <h1 className="text-3xl font-bold text-gray-800">Device Management</h1>
-          <p className="text-gray-600 mt-2">Sistem Monitoring Perangkat</p>
-        </div>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <div className="relative">
-              <FiMail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="email"
-                {...register('email', { 
-                  required: 'Email wajib diisi',
-                  pattern: {
-                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: 'Email tidak valid'
-                  }
-                })}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                placeholder="Masukkan email"
-              />
-            </div>
-            {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
+          <div className="mb-6">
+            <label className="block text-sm font-medium mb-1">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+            />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <div className="relative">
-              <FiLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                {...register('password', { 
-                  required: 'Password wajib diisi',
-                  minLength: { value: 6, message: 'Password minimal 6 karakter' }
-                })}
-                className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                placeholder="Masukkan password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                {showPassword ? <FiEyeOff className="w-5 h-5" /> : <FiEye className="w-5 h-5" />}
-              </button>
-            </div>
-            {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>}
-          </div>
-
           <button
             type="submit"
-            disabled={isLoading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {isLoading ? 'Memproses...' : 'Login'}
+            {loading ? 'Loading...' : 'Login'}
           </button>
-
-          <div className="text-center mt-4 space-y-2">
-            <Link href="/register" className="block text-sm text-blue-600 hover:text-blue-700">
-              Belum punya akun? Daftar di sini
-            </Link>
-            <Link href="/forgot-password" className="block text-sm text-gray-500 hover:text-gray-700">
-              Lupa password?
-            </Link>
-          </div>
         </form>
-
-        <div className="mt-6 text-center text-xs text-gray-500">
-          © {new Date().getFullYear()} Device Management System. All rights reserved.
-        </div>
+        <p className="text-center mt-4 text-sm">
+          Belum punya akun? <Link href="/register" className="text-blue-600 hover:underline">Daftar</Link>
+        </p>
+        <p className="text-center mt-2 text-sm">
+          <Link href="/forgot-password" className="text-gray-500 hover:underline">Lupa password?</Link>
+        </p>
       </div>
     </div>
   );
