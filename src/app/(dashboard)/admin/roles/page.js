@@ -67,36 +67,22 @@ export default function AdminRolesPage() {
                 <h3 className="text-lg font-semibold text-gray-800">
                   {role.displayName}
                   {role.isSystem && (
-                    <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                      System
-                    </span>
+                    <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">System</span>
                   )}
                 </h3>
                 <p className="text-sm text-gray-500">{role.description}</p>
               </div>
               {editingRole === role._id ? (
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => handleSaveRole(role._id)}
-                    className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
-                    title="Simpan"
-                  >
+                  <button onClick={() => handleSaveRole(role._id)} className="p-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
                     <FiSave className="w-5 h-5" />
                   </button>
-                  <button
-                    onClick={handleCancelEdit}
-                    className="p-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                    title="Batal"
-                  >
+                  <button onClick={handleCancelEdit} className="p-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors">
                     <FiX className="w-5 h-5" />
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={() => handleEditRole(role)}
-                  className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                  title="Edit"
-                >
+                <button onClick={() => handleEditRole(role)} className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
                   <FiEdit2 className="w-5 h-5" />
                 </button>
               )}
@@ -104,13 +90,10 @@ export default function AdminRolesPage() {
 
             <div className="space-y-4">
               {editingRole === role._id ? (
-                // Edit mode
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {Object.entries(permissions).map(([category, perms]) => (
                     <div key={category} className="border rounded-lg p-4">
-                      <h4 className="font-medium text-gray-700 mb-2 capitalize">
-                        {category.replace('_', ' ')}
-                      </h4>
+                      <h4 className="font-medium text-gray-700 mb-2 capitalize">{category.replace('_', ' ')}</h4>
                       <div className="space-y-2">
                         {Object.entries(perms).map(([perm, value]) => (
                           <label key={perm} className="flex items-center gap-2 text-sm">
@@ -128,14 +111,10 @@ export default function AdminRolesPage() {
                   ))}
                 </div>
               ) : (
-                // View mode
                 <div className="flex flex-wrap gap-2">
                   {role.permissions && Object.values(role.permissions).flatMap(
                     (perms) => Object.keys(perms).map((perm) => (
-                      <span
-                        key={perm}
-                        className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
-                      >
+                      <span key={perm} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
                         {perm.replace('_', ' ')}
                       </span>
                     ))
