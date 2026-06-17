@@ -2,25 +2,23 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDispatch } from 'react-redux';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { FiMail, FiArrowLeft } from 'react-icons/fi';
-import { api } from '@/lib/api';
+import apiClient from '@/lib/api';
 
 export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const router = useRouter();
-  const dispatch = useDispatch();
   
   const { register, handleSubmit, formState: { errors } } = useForm();
 
   const onSubmit = async (data) => {
     try {
       setIsLoading(true);
-      await api.auth.resetPassword(data.email);
+      await apiClient.post('/auth/reset-password', { email: data.email });
       setIsSuccess(true);
       toast.success('Email reset password telah dikirim!');
     } catch (error) {
