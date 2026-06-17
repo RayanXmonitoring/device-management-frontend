@@ -1,56 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useDispatch, useSelector } from 'react-redux';
-import { useAuth } from '@/hooks/useAuth';
-import Sidebar from '@/components/common/Sidebar';
-import Navbar from '@/components/common/Navbar';
-import { logout } from '@/store/slices/authSlice';
+import Link from 'next/link';
 
 export default function DashboardLayout({ children }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const router = useRouter();
-  const dispatch = useDispatch();
-  const { isAuthenticated, user } = useSelector((state) => state.auth);
-  const { isAuthenticated: authCheck, loading } = useAuth();
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
+    const token = localStorage.getItem('token');
+    if (!token) {
       router.push('/login');
     }
-  }, [isAuthenticated, loading, router]);
+  }, [router]);
 
-  if (loading || !isAuthenticated) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  const handleLogout = async () => {
-    await dispatch(logout());
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     router.push('/login');
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      <Sidebar 
-        isOpen={sidebarOpen} 
-        setIsOpen={setSidebarOpen}
-        userRole={user?.role}
-      />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Navbar 
-          user={user}
-          onLogout={handleLogout}
-          toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-        />
-        <main className="flex-1 overflow-y-auto p-4">
-          {children}
-        </main>
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white shadow-sm px-6 py-3 flex justify-between items-center">
+        <h1 className="text-xl font-bold">Device Management</h1>
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard" className="hover:text-blue-600">Dashboard</Link>
+          <Link href="/admin/licenses" className="hover:text-blue-600">Licenses</Link>
+          <Link href="/admin/roles" className="hover:text-blue-600">Roles</Link>
+          <button onClick={handleLogout} className="text-red-600 hover:text-red-800">Logout</button>
+        </div>
+      </nav>
+      <main className="p-6">{children}</main>
     </div>
   );
 }
