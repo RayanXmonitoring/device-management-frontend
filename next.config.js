@@ -7,13 +7,14 @@ const nextConfig = {
     unoptimized: true,
   },
   env: {
-    NEXT_PUBLIC_APP_VERSION: '1.0.0',
+    NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0',
+    NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME || 'Device Management System',
   },
   // Disable middleware for Edge runtime
   experimental: {
     middleware: true,
   },
-  // Ensure Firebase modules are not bundled for Edge
+  // Webpack configuration
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
