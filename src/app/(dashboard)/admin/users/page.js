@@ -2,73 +2,67 @@
 
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { FiPlus, FiEdit2, FiTrash2, FiUserX } from 'react-icons/fi';
-import { api } from '@/lib/api';
-import toast from 'react-hot-toast';
+import { 
+  fetchUsers, 
+  createUser, 
+  updateUser, 
+  deleteUser, 
+  suspendUser, 
+  activateUser 
+} from '@/store/slices/adminSlice';
+import { FiPlus, FiEdit2, FiTrash2, FiUserX, FiUserCheck, FiSearch } from 'react-icons/fi';
 import Modal from '@/components/common/Modal';
+import Loading from '@/components/common/Loading';
+import toast from 'react-hot-toast';
+import { useForm } from 'react-hook-form';
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    role: 'user',
-    licenseType: 'user_30days',
-  });
-  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const dispatch = useDispatch();
+  const { users, isLoading } = useSelector((state) => state.admin);
   const { user: currentUser } = useSelector((state) => state.auth);
+  const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    dispatch(fetchUsers());
+  }, [dispatch]);
 
-  const fetchUsers = async () => {
-    try {
-      setIsLoading(true);
-      const response = await api.admin.getUsers();
-      setUsers(response.data);
-    } catch (error) {
-      toast.error('Gagal mengambil data users');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
+    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+    return matchesSearch && matchesStatus && matchesRole;
+  });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const onSubmit = async (data) => {
     try {
       if (editingUser) {
-        await api.admin.updateUser(editingUser.id, formData);
-        toast.success('User berhasil diupdate');
+        await dispatch(updateUser({ id: editingUser._id, data })).unwrap();
+        toast.success('User berhasil diperbarui!');
       } else {
-        await api.admin.createUser(formData);
-        toast.success('User berhasil dibuat');
+        await dispatch(createUser(data)).unwrap();
+        toast.success('User berhasil dibuat!');
       }
       setShowModal(false);
       setEditingUser(null);
-      setFormData({
-        name: '',
-        email: '',
-        password: '',
-        role: 'user',
-        licenseType: 'user_30days',
-      });
-      fetchUsers();
+      reset();
+      dispatch(fetchUsers());
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Terjadi kesalahan');
+      toast.error(error || 'Gagal menyimpan user');
     }
   };
 
   const handleDelete = async (userId) => {
     if (!confirm('Apakah Anda yakin ingin menghapus user ini?')) return;
     try {
-      await api.admin.deleteUser(userId);
-      toast.success('User berhasil dihapus');
-      fetchUsers();
+      await dispatch(deleteUser(userId)).unwrap();
+      toast.success('User berhasil dihapus!');
+      dispatch(fetchUsers());
     } catch (error) {
       toast.error('Gagal menghapus user');
     }
@@ -76,33 +70,50 @@ export default function AdminUsersPage() {
 
   const handleSuspend = async (userId) => {
     try {
-      await api.admin.suspendUser(userId);
-      toast.success('User berhasil di-suspend');
-      fetchUsers();
+      await dispatch(suspendUser(userId)).unwrap();
+      toast.success('User berhasil di-suspend!');
+      dispatch(fetchUsers());
     } catch (error) {
       toast.error('Gagal suspend user');
     }
   };
 
-  const getRoleText = (role) => {
-    switch (role) {
-      case 'admin': return 'Administrator';
-      case 'reseller': return 'Reseller';
-      default: return 'User';
+  const handleActivate = async (userId) => {
+    try {
+      await dispatch(activateUser(userId)).unwrap();
+      toast.success('User berhasil diaktifkan!');
+      dispatch(fetchUsers());
+    } catch (error) {
+      toast.error('Gagal aktivasi user');
     }
   };
 
-  const getLicenseText = (type) => {
-    switch (type) {
-      case 'reseller': return '1 Tahun';
-      case 'user_1year': return '1 Tahun';
-      default: return '30 Hari';
-    }
+  const getRoleBadge = (role) => {
+    const colors = {
+      admin: 'bg-purple-100 text-purple-800',
+      reseller: 'bg-blue-100 text-blue-800',
+      user: 'bg-green-100 text-green-800',
+    };
+    return colors[role] || 'bg-gray-100 text-gray-800';
   };
+
+  const getStatusBadge = (status) => {
+    const colors = {
+      active: 'bg-green-100 text-green-800',
+      suspended: 'bg-red-100 text-red-800',
+      pending: 'bg-yellow-100 text-yellow-800',
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  if (isLoading) {
+    return <Loading />;
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Kelola User</h1>
           <p className="text-gray-600">Manajemen akun pengguna sistem</p>
@@ -110,13 +121,7 @@ export default function AdminUsersPage() {
         <button
           onClick={() => {
             setEditingUser(null);
-            setFormData({
-              name: '',
-              email: '',
-              password: '',
-              role: 'user',
-              licenseType: 'user_30days',
-            });
+            reset();
             setShowModal(true);
           }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
@@ -126,25 +131,59 @@ export default function AdminUsersPage() {
         </button>
       </div>
 
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow p-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1 relative">
+            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Cari user..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">Semua Status</option>
+            <option value="active">Aktif</option>
+            <option value="suspended">Suspend</option>
+            <option value="pending">Pending</option>
+          </select>
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">Semua Role</option>
+            <option value="admin">Administrator</option>
+            <option value="reseller">Reseller</option>
+            <option value="user">User</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Nama
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
+                  User
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Role
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Lisensi
+                  Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                  Lisensi
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Aksi
@@ -152,71 +191,86 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => (
-                <tr key={user.id} className={user.id === currentUser?.id ? 'bg-blue-50' : ''}>
+              {filteredUsers.map((user) => (
+                <tr key={user._id} className={user._id === currentUser?._id ? 'bg-blue-50' : ''}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {user.name}
-                      {user.id === currentUser?.id && (
-                        <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                          Anda
-                        </span>
-                      )}
+                    <div className="flex items-center">
+                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                        {user.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="ml-3">
+                        <div className="text-sm font-medium text-gray-900">
+                          {user.name}
+                          {user._id === currentUser?._id && (
+                            <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                              Anda
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-500">{user.email}</div>
+                      </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.email}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleBadge(user.role)}`}>
+                      {user.role}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
-                      {getRoleText(user.role)}
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(user.status)}`}>
+                      {user.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {getLicenseText(user.licenseType)}
+                    <div>{user.license?.type || '-'}</div>
                     <div className="text-xs text-gray-400">
-                      {user.licenseExpiry ? new Date(user.licenseExpiry).toLocaleDateString() : '-'}
+                      {user.license?.expiryDate ? new Date(user.license.expiryDate).toLocaleDateString() : '-'}
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                      {user.isActive ? 'Aktif' : 'Suspend'}
-                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div className="flex gap-2">
                       <button
                         onClick={() => {
                           setEditingUser(user);
-                          setFormData({
+                          reset({
                             name: user.name,
                             email: user.email,
-                            password: '',
                             role: user.role,
-                            licenseType: user.licenseType,
+                            status: user.status,
+                            licenseType: user.license?.type || 'user_30days',
                           });
                           setShowModal(true);
                         }}
                         className="p-1 hover:bg-gray-100 rounded"
                         title="Edit"
                       >
-                        <FiEdit2 className="w-5 h-5" />
+                        <FiEdit2 className="w-5 h-5 text-blue-600" />
                       </button>
-                      {user.id !== currentUser?.id && (
+                      {user._id !== currentUser?._id && (
                         <>
+                          {user.status === 'active' ? (
+                            <button
+                              onClick={() => handleSuspend(user._id)}
+                              className="p-1 hover:bg-gray-100 rounded"
+                              title="Suspend"
+                            >
+                              <FiUserX className="w-5 h-5 text-yellow-600" />
+                            </button>
+                          ) : user.status === 'suspended' ? (
+                            <button
+                              onClick={() => handleActivate(user._id)}
+                              className="p-1 hover:bg-gray-100 rounded"
+                              title="Aktifkan"
+                            >
+                              <FiUserCheck className="w-5 h-5 text-green-600" />
+                            </button>
+                          ) : null}
                           <button
-                            onClick={() => handleSuspend(user.id)}
-                            className="p-1 hover:bg-gray-100 rounded text-yellow-500"
-                            title={user.isActive ? 'Suspend' : 'Aktifkan'}
-                          >
-                            <FiUserX className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(user.id)}
-                            className="p-1 hover:bg-gray-100 rounded text-red-500"
+                            onClick={() => handleDelete(user._id)}
+                            className="p-1 hover:bg-gray-100 rounded"
                             title="Hapus"
                           >
-                            <FiTrash2 className="w-5 h-5" />
+                            <FiTrash2 className="w-5 h-5 text-red-600" />
                           </button>
                         </>
                       )}
@@ -229,98 +283,140 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Modal for create/edit user */}
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)}>
-        <div className="p-6">
-          <h3 className="text-lg font-semibold mb-4">
-            {editingUser ? 'Edit User' : 'Tambah User Baru'}
-          </h3>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nama Lengkap
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email
-              </label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-            {!editingUser && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required={!editingUser}
-                  minLength={6}
-                />
-              </div>
+      {/* Modal */}
+      <Modal
+        isOpen={showModal}
+        onClose={() => {
+          setShowModal(false);
+          setEditingUser(null);
+          reset();
+        }}
+        title={editingUser ? 'Edit User' : 'Tambah User Baru'}
+      >
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Nama Lengkap *
+            </label>
+            <input
+              type="text"
+              {...register('name', { required: 'Nama wajib diisi' })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Masukkan nama lengkap"
+            />
+            {errors.name && (
+              <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
             )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Email *
+            </label>
+            <input
+              type="email"
+              {...register('email', { 
+                required: 'Email wajib diisi',
+                pattern: {
+                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                  message: 'Email tidak valid'
+                }
+              })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Masukkan email"
+              disabled={!!editingUser}
+            />
+            {errors.email && (
+              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+            )}
+          </div>
+
+          {!editingUser && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Role
+                Password *
               </label>
-              <select
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+              <input
+                type="password"
+                {...register('password', { 
+                  required: 'Password wajib diisi',
+                  minLength: {
+                    value: 6,
+                    message: 'Password minimal 6 karakter'
+                  }
+                })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="user">User</option>
-                <option value="reseller">Reseller</option>
-                <option value="admin">Administrator</option>
-              </select>
+                placeholder="Masukkan password"
+              />
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
+              )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipe Lisensi
-              </label>
-              <select
-                value={formData.licenseType}
-                onChange={(e) => setFormData({ ...formData, licenseType: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="user_30days">User (30 Hari)</option>
-                <option value="user_1year">User (1 Tahun)</option>
-                <option value="reseller">Reseller (1 Tahun)</option>
-              </select>
-            </div>
-            <div className="flex gap-3 pt-4">
-              <button
-                type="submit"
-                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                {editingUser ? 'Update' : 'Simpan'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Batal
-              </button>
-            </div>
-          </form>
-        </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Role
+            </label>
+            <select
+              {...register('role')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="user">User</option>
+              <option value="reseller">Reseller</option>
+              <option value="admin">Administrator</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Status
+            </label>
+            <select
+              {...register('status')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="active">Aktif</option>
+              <option value="suspended">Suspend</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipe Lisensi
+            </label>
+            <select
+              {...register('licenseType')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="user_30days">User (30 Hari)</option>
+              <option value="user_1year">User (1 Tahun)</option>
+              <option value="reseller">Reseller (1 Tahun)</option>
+            </select>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="submit"
+              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              {editingUser ? 'Perbarui' : 'Simpan'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowModal(false);
+                setEditingUser(null);
+                reset();
+              }}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Batal
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );
-            }
+}
